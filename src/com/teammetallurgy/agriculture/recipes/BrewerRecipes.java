@@ -1,156 +1,131 @@
 package com.teammetallurgy.agriculture.recipes;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
-import com.teammetallurgy.agriculture.AgricultureItems;
-import com.teammetallurgy.agriculture.SubItem;
-
-import net.minecraft.block.Block;
-import net.minecraft.inventory.IInventory;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraftforge.fluids.Fluid;
 import net.minecraftforge.fluids.FluidRegistry;
 import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.FluidRegistry.FluidRegisterEvent;
 
-public class BrewerRecipes
-{
-	/** The static instance of this class */
-	private static final BrewerRecipes instance = new BrewerRecipes();
+import com.teammetallurgy.agriculture.AgricultureItems;
 
-	/** A list of all the recipes added */
-	private List recipes = new ArrayList();
+public class BrewerRecipes {
+    /** The static instance of this class */
+    private static final BrewerRecipes instance = new BrewerRecipes();
 
-	/**
-	 * Returns the static instance of this class
-	 */
-	public static final BrewerRecipes getInstance()
-	{
-		return instance;
-	}
+    /**
+     * Returns the static instance of this class
+     */
+    public static final BrewerRecipes getInstance()
+    {
+        return BrewerRecipes.instance;
+    }
 
-	public void addRecipe(ItemStack item, FluidStack result)
-	{
-		addRecipe(item, null, result);
-	}
+    /** A list of all the recipes added */
+    private final List<BrewerRecipe> recipes = new ArrayList<BrewerRecipe>();
 
-	public void addRecipe(ItemStack item, FluidStack base, FluidStack result)
-	{
-		addRecipe(item, base, result, 40);
-	}
+    private BrewerRecipes()
+    {
+        this.addRecipe(new ItemStack(Item.bucketWater), new FluidStack(FluidRegistry.WATER, 1000));
+        this.addRecipe(new ItemStack(Item.bucketMilk), new FluidStack(FluidRegistry.getFluid("milk"), 1000));
 
-	public void addRecipe(ItemStack item, FluidStack base, FluidStack result, int processingTime)
-	{
-		this.recipes.add(new BrewerRecipe(item, base, result, 40));
-	}
+        this.addRecipe(new ItemStack(Item.wheat), new FluidStack(FluidRegistry.WATER, 1000), new FluidStack(FluidRegistry.getFluid("beer"), 1000));
+        this.addRecipe(AgricultureItems.chocolate.getItemStack(), new FluidStack(FluidRegistry.getFluid("milk"), 1000), new FluidStack(FluidRegistry.getFluid("hotcocoa"), 1000));
+        this.addRecipe(new ItemStack(Item.reed), new FluidStack(FluidRegistry.WATER, 1000), new FluidStack(FluidRegistry.getFluid("vinegar"), 1000));
+        this.addRecipe(new ItemStack(Item.potato), new FluidStack(FluidRegistry.WATER, 1000), new FluidStack(FluidRegistry.getFluid("vodka"), 1000));
+        this.addRecipe(new ItemStack(Item.appleRed), new FluidStack(FluidRegistry.WATER, 1000), new FluidStack(FluidRegistry.getFluid("cider"), 1000));
 
-	private void addRecipe(ItemStack itemStack, FluidStack base, ItemStack result, int processingTime)
-	{
-		this.recipes.add(new BrewerRecipe(itemStack, base, result, 40));
+        this.addRecipe(AgricultureItems.ceramicCup.getItemStack(), new FluidStack(FluidRegistry.getFluid("beer"), 1000), AgricultureItems.beer.getItemStack(), 40);
+        this.addRecipe(AgricultureItems.ceramicCup.getItemStack(), new FluidStack(FluidRegistry.getFluid("vinegar"), 1000), AgricultureItems.vinegar.getItemStack(), 40);
+        this.addRecipe(AgricultureItems.ceramicCup.getItemStack(), new FluidStack(FluidRegistry.getFluid("hotcocoa"), 1000), AgricultureItems.hotCocoa.getItemStack(), 40);
+    }
 
-	}
+    public void addRecipe(final ItemStack item, final FluidStack result)
+    {
+        this.addRecipe(item, null, result);
+    }
 
-	public FluidStack findMatchingFluid(ItemStack first, FluidStack base)
-	{
-		BrewerRecipe recipe = getMatchingRecipe(first, base);
+    public void addRecipe(final ItemStack item, final FluidStack base, final FluidStack result)
+    {
+        this.addRecipe(item, base, result, 40);
+    }
 
-		if (recipe != null)
-		{
-			Object result = recipe.getCraftingResult();
+    public void addRecipe(final ItemStack item, final FluidStack base, final FluidStack result, final int processingTime)
+    {
+        recipes.add(new BrewerRecipe(item, base, result, 40));
+    }
 
-			if (result instanceof FluidStack)
-				return (FluidStack) result;
+    private void addRecipe(final ItemStack itemStack, final FluidStack base, final ItemStack result, final int processingTime)
+    {
+        recipes.add(new BrewerRecipe(itemStack, base, result, 40));
 
-			return null;
-		}
-		return null;
-	}
+    }
 
-	public ItemStack findMatchingItem(ItemStack first, FluidStack base)
-	{
-		BrewerRecipe recipe = getMatchingRecipe(first, base);
+    public FluidStack findMatchingFluid(final ItemStack first, final FluidStack base)
+    {
+        final BrewerRecipe recipe = getMatchingRecipe(first, base);
 
-		if (recipe != null)
-		{
-			Object result = recipe.getCraftingResult();
+        if (recipe != null)
+        {
+            final Object result = recipe.getCraftingResult();
 
-			if (result instanceof ItemStack)
-				return (ItemStack) result;
+            if (result instanceof FluidStack) { return (FluidStack) result; }
 
-			return null;
-		}
-		return null;
-	}
+            return null;
+        }
+        return null;
+    }
 
-	public BrewerRecipe getMatchingRecipe(ItemStack first, FluidStack base)
-	{
-		if (first == null)
-		{
-			return null;
-		}
+    public ItemStack findMatchingItem(final ItemStack first, final FluidStack base)
+    {
+        final BrewerRecipe recipe = getMatchingRecipe(first, base);
 
-		for (int j = 0; j < this.recipes.size(); ++j)
-		{
-			BrewerRecipe irecipe = (BrewerRecipe) this.recipes.get(j);
+        if (recipe != null)
+        {
+            final Object result = recipe.getCraftingResult();
 
-			if (irecipe.matches(first, base))
-			{
-				return irecipe;
-			}
-		}
+            if (result instanceof ItemStack) { return (ItemStack) result; }
 
-		return null;
-	}
+            return null;
+        }
+        return null;
+    }
 
-	private BrewerRecipes()
-	{
-		addRecipe(new ItemStack(Item.bucketWater), new FluidStack(FluidRegistry.WATER, 1000));
-		addRecipe(new ItemStack(Item.bucketMilk), new FluidStack(FluidRegistry.getFluid("milk"), 1000));
-		
-		addRecipe(new ItemStack(Item.wheat), new FluidStack(FluidRegistry.WATER, 1000), new FluidStack(FluidRegistry.getFluid("beer"), 1000));
-		addRecipe(AgricultureItems.chocolate.getItemStack(), new FluidStack(FluidRegistry.getFluid("milk"), 1000), new FluidStack(FluidRegistry.getFluid("hotcocoa"), 1000));
-		addRecipe(new ItemStack(Item.reed), new FluidStack(FluidRegistry.WATER, 1000), new FluidStack(FluidRegistry.getFluid("vinegar"), 1000));
-		addRecipe(new ItemStack(Item.potato), new FluidStack(FluidRegistry.WATER, 1000), new FluidStack(FluidRegistry.getFluid("vodka"), 1000));
-		addRecipe(new ItemStack(Item.appleRed), new FluidStack(FluidRegistry.WATER, 1000), new FluidStack(FluidRegistry.getFluid("cider"), 1000));
-				
-		addRecipe(AgricultureItems.ceramicCup.getItemStack(), new FluidStack(FluidRegistry.getFluid("beer"), 1000), AgricultureItems.beer.getItemStack(), 40);
-		addRecipe(AgricultureItems.ceramicCup.getItemStack(), new FluidStack(FluidRegistry.getFluid("vinegar"), 1000), AgricultureItems.vinegar.getItemStack(), 40);
-		addRecipe(AgricultureItems.ceramicCup.getItemStack(), new FluidStack(FluidRegistry.getFluid("hotcocoa"), 1000), AgricultureItems.hotCocoa.getItemStack(), 40);
-	}
+    public BrewerRecipe getMatchingRecipe(final ItemStack first, final FluidStack base)
+    {
+        if (first == null) { return null; }
 
-	public int getProcessTime(ItemStack stackInSlot)
-	{
-		if (stackInSlot == null)
-		{
-			return 0;
-		}
+        for (int j = 0; j < recipes.size(); ++j)
+        {
+            final BrewerRecipe irecipe = recipes.get(j);
 
-		BrewerRecipe recipe = getMatchingRecipeIgnoreBase(stackInSlot);
+            if (irecipe.matches(first, base)) { return irecipe; }
+        }
 
-		if (recipe != null)
-		{
-			return recipe.getProcessingTime();
-		}
-		return 0;
-	}
+        return null;
+    }
 
-	private BrewerRecipe getMatchingRecipeIgnoreBase(ItemStack stackInSlot)
-	{
+    private BrewerRecipe getMatchingRecipeIgnoreBase(final ItemStack stackInSlot)
+    {
 
-		for (int j = 0; j < this.recipes.size(); ++j)
-		{
-			BrewerRecipe irecipe = (BrewerRecipe) this.recipes.get(j);
+        for (int j = 0; j < recipes.size(); ++j)
+        {
+            final BrewerRecipe irecipe = recipes.get(j);
 
-			if (irecipe.matches(stackInSlot))
-			{
-				return irecipe;
-			}
-		}
+            if (irecipe.matches(stackInSlot)) { return irecipe; }
+        }
 
-		return null;
-	}
+        return null;
+    }
+
+    public int getProcessTime(final ItemStack stackInSlot)
+    {
+        if (stackInSlot == null) { return 0; }
+
+        final BrewerRecipe recipe = getMatchingRecipeIgnoreBase(stackInSlot);
+
+        if (recipe != null) { return recipe.getProcessingTime(); }
+        return 0;
+    }
 }

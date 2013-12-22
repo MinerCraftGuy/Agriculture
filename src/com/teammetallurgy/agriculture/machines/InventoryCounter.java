@@ -1,58 +1,57 @@
 package com.teammetallurgy.agriculture.machines;
 
-import com.teammetallurgy.agriculture.recipes.CounterRecipes;
-
 import net.minecraft.inventory.InventoryBasic;
 import net.minecraft.item.ItemStack;
 
-public class InventoryCounter extends InventoryBasic
-{
+import com.teammetallurgy.agriculture.recipes.CounterRecipes;
 
-	public InventoryCounter(String par1Str, boolean par2, int par3)
-	{
-		super(par1Str, par2, par3);
-	}
+public class InventoryCounter extends InventoryBasic {
 
-	@Override
-	public int getInventoryStackLimit()
-	{
-		return 1;
-	}
+    public InventoryCounter(final String par1Str, final boolean par2, final int par3)
+    {
+        super(par1Str, par2, par3);
+    }
 
-	@Override
-	public void onInventoryChanged()
-	{
-		for (int i = 0; i < 4; i++)
-		{
-			ItemStack stack = getStackInSlot(i);
-			if (stack != null)
-			{
+    private void clearInventory(final ItemStack findMatchingRecipe)
+    {
+        for (int i = 4; i < 20; i++)
+        {
+            final ItemStack stack = getStackInSlot(i);
 
-				ItemStack findMatchingRecipe = CounterRecipes.getInstance().findMatchingRecipe(this);
+            if (stack != null)
+            {
+                final boolean mat = CounterRecipes.getInstance().isMat(findMatchingRecipe, stack, this);
+                if (mat)
+                {
+                    setInventorySlotContents(i, null);
+                }
+            }
+        }
+    }
 
-				if (findMatchingRecipe != null && !ItemStack.areItemStacksEqual(stack, findMatchingRecipe))
-				{
-					this.clearInventory(findMatchingRecipe);
-					setInventorySlotContents(i, findMatchingRecipe);
-				}
-			}
-		}
-	}
+    @Override
+    public int getInventoryStackLimit()
+    {
+        return 1;
+    }
 
-	private void clearInventory(ItemStack findMatchingRecipe)
-	{
-		for (int i = 4; i < 20; i++)
-		{
-			ItemStack stack = getStackInSlot(i);
+    @Override
+    public void onInventoryChanged()
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            final ItemStack stack = getStackInSlot(i);
+            if (stack != null)
+            {
 
-			if (stack != null)
-			{
-				boolean mat = CounterRecipes.getInstance().isMat(findMatchingRecipe, stack, this);
-				if (mat)
-				{
-					setInventorySlotContents(i, null);
-				}
-			}
-		}
-	}
+                final ItemStack findMatchingRecipe = CounterRecipes.getInstance().findMatchingRecipe(this);
+
+                if (findMatchingRecipe != null && !ItemStack.areItemStacksEqual(stack, findMatchingRecipe))
+                {
+                    clearInventory(findMatchingRecipe);
+                    setInventorySlotContents(i, findMatchingRecipe);
+                }
+            }
+        }
+    }
 }

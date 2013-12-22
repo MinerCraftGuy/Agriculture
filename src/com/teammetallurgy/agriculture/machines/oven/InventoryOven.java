@@ -1,58 +1,54 @@
 package com.teammetallurgy.agriculture.machines.oven;
 
-import com.teammetallurgy.agriculture.AgricultureItems;
-
 import net.minecraft.inventory.InventoryBasic;
 import net.minecraft.item.ItemStack;
 
-public class InventoryOven extends InventoryBasic
-{
-	
-	private TileEntityOven oven;
-	
-	public InventoryOven(String par1Str, boolean par2, int par3, TileEntityOven tileEntityOven)
-	{
-		super(par1Str, par2, par3);
-		
-		this.oven = tileEntityOven;
-	}
+import com.teammetallurgy.agriculture.AgricultureItems;
 
-	@Override
-	public int getInventoryStackLimit()
-	{
-		return 64;
-	}
-	
-	@Override
-	public void openChest()
-	{
-		if (this.oven.numUsingPlayers < 0)
-		{
-			this.oven.numUsingPlayers = 0;
-		}
+public class InventoryOven extends InventoryBasic {
 
-		++this.oven.numUsingPlayers;
-		this.oven.worldObj.addBlockEvent(this.oven.xCoord, this.oven.yCoord, this.oven.zCoord, this.oven.getBlockType().blockID, 1, this.oven.numUsingPlayers);
-	}
+    private final TileEntityOven oven;
 
-	@Override
-	public void closeChest()
-	{
-		if (this.oven.getBlockType() != null && this.oven.getBlockType() instanceof BlockOven)
-		{
-			--this.oven.numUsingPlayers;
-			this.oven.worldObj.addBlockEvent(this.oven.xCoord, this.oven.yCoord, this.oven.zCoord, this.oven.getBlockType().blockID, 1, this.oven.numUsingPlayers);
-		}
-	}
+    public InventoryOven(final String par1Str, final boolean par2, final int par3, final TileEntityOven tileEntityOven)
+    {
+        super(par1Str, par2, par3);
 
-	@Override
-	public boolean isItemValidForSlot(int i, ItemStack itemstack)
-	{
-		if (i >= 17 && i <= 19)
-		{
-			return itemstack.itemID == AgricultureItems.ovenRack.itemID;
-		}
+        oven = tileEntityOven;
+    }
 
-		return true;
-	}
+    @Override
+    public void closeChest()
+    {
+        if (oven.getBlockType() != null && oven.getBlockType() instanceof BlockOven)
+        {
+            --oven.numUsingPlayers;
+            oven.worldObj.addBlockEvent(oven.xCoord, oven.yCoord, oven.zCoord, oven.getBlockType().blockID, 1, oven.numUsingPlayers);
+        }
+    }
+
+    @Override
+    public int getInventoryStackLimit()
+    {
+        return 64;
+    }
+
+    @Override
+    public boolean isItemValidForSlot(final int i, final ItemStack itemstack)
+    {
+        if (i >= 17 && i <= 19) { return itemstack.itemID == AgricultureItems.ovenRack.itemID; }
+
+        return true;
+    }
+
+    @Override
+    public void openChest()
+    {
+        if (oven.numUsingPlayers < 0)
+        {
+            oven.numUsingPlayers = 0;
+        }
+
+        ++oven.numUsingPlayers;
+        oven.worldObj.addBlockEvent(oven.xCoord, oven.yCoord, oven.zCoord, oven.getBlockType().blockID, 1, oven.numUsingPlayers);
+    }
 }

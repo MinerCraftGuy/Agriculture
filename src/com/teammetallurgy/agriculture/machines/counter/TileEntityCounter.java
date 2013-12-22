@@ -1,109 +1,108 @@
 package com.teammetallurgy.agriculture.machines.counter;
 
 import net.minecraft.inventory.IInventory;
-import net.minecraft.inventory.InventoryBasic;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTBase;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 
 import com.teammetallurgy.agriculture.machines.BaseMachineTileEntity;
-import com.teammetallurgy.agriculture.recipes.CounterRecipes;
 
-public class TileEntityCounter extends BaseMachineTileEntity
-{
-	private InventoryCabinet cabinet = new InventoryCabinet("", false, 24, this);
-	int numUsingPlayers;
+public class TileEntityCounter extends BaseMachineTileEntity {
+    private final InventoryCabinet cabinet = new InventoryCabinet("", false, 24, this);
+    float leftDoorAngle;
 
-	// Left door
-	float prevLeftDoorAngle;
-	float leftDoorAngle;
+    int numUsingPlayers;
+    // Left door
+    float prevLeftDoorAngle;
 
-	// Right door
-	double prevRightDoorAngle;
-	float rightDoorAngle;
+    // Right door
+    double prevRightDoorAngle;
+    float rightDoorAngle;
 
-	public IInventory getCabinet()
-	{
-		return cabinet;
-	}
+    public IInventory getCabinet()
+    {
+        return cabinet;
+    }
 
-	@Override
-	public void onInventoryChanged()
-	{
-	}
+    @Override
+    public void onInventoryChanged()
+    {
+    }
 
-	@Override
-	public void readFromNBT(NBTTagCompound tag)
-	{
-		NBTTagList tagList = tag.getTagList("Items");
+    @Override
+    public void readFromNBT(final NBTTagCompound tag)
+    {
+        final NBTTagList tagList = tag.getTagList("Items");
 
-		for (int i = 0; i < tagList.tagCount(); i++)
-		{
-			NBTTagCompound base = (NBTTagCompound) tagList.tagAt(i);
-			int slot = Integer.valueOf(base.getByte("Slot"));
-			cabinet.setInventorySlotContents(slot, ItemStack.loadItemStackFromNBT(base));
-		}
+        for (int i = 0; i < tagList.tagCount(); i++)
+        {
+            final NBTTagCompound base = (NBTTagCompound) tagList.tagAt(i);
+            final int slot = Integer.valueOf(base.getByte("Slot"));
+            cabinet.setInventorySlotContents(slot, ItemStack.loadItemStackFromNBT(base));
+        }
 
-		super.readFromNBT(tag);
-	}
+        super.readFromNBT(tag);
+    }
 
-	@Override
-	public void writeToNBT(NBTTagCompound tag)
-	{
+    @Override
+    public boolean receiveClientEvent(final int id, final int value)
+    {
+        if (id == 1)
+        {
+            numUsingPlayers = value;
+            return true;
+        }
+        else
+        {
+            return super.receiveClientEvent(id, value);
+        }
+    }
 
-		NBTTagList nbtTagList = new NBTTagList();
-		for (int i = 0; i < this.cabinet.getSizeInventory(); ++i)
-		{
-			if (this.cabinet.getStackInSlot(i) != null)
-			{
-				NBTTagCompound nbttagcompound1 = new NBTTagCompound();
-				nbttagcompound1.setByte("Slot", (byte) i);
-				this.cabinet.getStackInSlot(i).writeToNBT(nbttagcompound1);
-				nbtTagList.appendTag(nbttagcompound1);
-			}
-		}
+    @Override
+    public void updateEntity()
+    {
+        prevLeftDoorAngle = leftDoorAngle;
+        if (numUsingPlayers == 0 && leftDoorAngle > 0.0F || numUsingPlayers > 0 && leftDoorAngle < 1.0F)
+        {
+            if (numUsingPlayers > 0)
+            {
+                leftDoorAngle += 0.1;
+            }
+            else
+            {
+                leftDoorAngle -= 0.1;
+            }
 
-		tag.setTag("Items", nbtTagList);
+            if (leftDoorAngle > 1.0F)
+            {
+                leftDoorAngle = 1.0F;
+            }
 
-		super.writeToNBT(tag);
-	}
+            if (leftDoorAngle < 0.0F)
+            {
+                leftDoorAngle = 0.0F;
+            }
+        }
+    }
 
-	public boolean receiveClientEvent(int id, int value)
-	{
-		if (id == 1)
-		{
-			this.numUsingPlayers = value;
-			return true;
-		} else
-		{
-			return super.receiveClientEvent(id, value);
-		}
-	}
+    @Override
+    public void writeToNBT(final NBTTagCompound tag)
+    {
 
-	@Override
-	public void updateEntity()
-	{
-		prevLeftDoorAngle = leftDoorAngle;
-		if (this.numUsingPlayers == 0 && leftDoorAngle > 0.0F || this.numUsingPlayers > 0 && leftDoorAngle < 1.0F)
-		{
-			if (this.numUsingPlayers > 0)
-			{
-				leftDoorAngle += 0.1;
-			} else
-			{
-				leftDoorAngle -= 0.1;
-			}
+        final NBTTagList nbtTagList = new NBTTagList();
+        for (int i = 0; i < cabinet.getSizeInventory(); ++i)
+        {
+            if (cabinet.getStackInSlot(i) != null)
+            {
+                final NBTTagCompound nbttagcompound1 = new NBTTagCompound();
+                nbttagcompound1.setByte("Slot", (byte) i);
+                cabinet.getStackInSlot(i).writeToNBT(nbttagcompound1);
+                nbtTagList.appendTag(nbttagcompound1);
+            }
+        }
 
-			if (leftDoorAngle > 1.0F)
-			{
-				leftDoorAngle = 1.0F;
-			}
+        tag.setTag("Items", nbtTagList);
 
-			if (leftDoorAngle < 0.0F)
-			{
-				leftDoorAngle = 0.0F;
-			}
-		}
-	}
+        super.writeToNBT(tag);
+    }
 }

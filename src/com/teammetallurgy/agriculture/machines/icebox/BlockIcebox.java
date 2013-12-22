@@ -8,48 +8,42 @@ import net.minecraft.world.World;
 import com.teammetallurgy.agriculture.Agriculture;
 import com.teammetallurgy.agriculture.libs.GUIIds;
 import com.teammetallurgy.agriculture.machines.BaseMachineBlock;
-import com.teammetallurgy.agriculture.machines.counter.TileEntityCounter;
 
-public class BlockIcebox extends BaseMachineBlock
-{
-	public BlockIcebox(int par1, Material par2Material) 
-	{
-		super(par1, par2Material);
-	}
+public class BlockIcebox extends BaseMachineBlock {
+    public BlockIcebox(final int par1, final Material par2Material)
+    {
+        super(par1, par2Material);
+    }
 
-	@Override
-	public boolean onBlockActivated(World world, int x, int y, int z, EntityPlayer player, int side, float xFace, float yFace, float zFace)
-	{
-		if(player.isSneaking()) 
-		{
-			return false;
-		}
-		
-		// (>_>) //
-		if (!world.isRemote)
-		{
-			int blockMetadata = world.getBlockMetadata(x, y, z);
-			final int front = blockMetadata % 2;
+    @Override
+    public TileEntity createNewTileEntity(final World world)
+    {
+        return new TileEntityIcebox();
+    }
 
-			if (side == 1 || yFace > 0.76f) // (<_<) /// :P Deal with it keith :P
-			{
-				player.openGui(Agriculture.instance, GUIIds.ICEBOX, world, x, y, z);
-				return true;
-			}
-			if (side == blockMetadata)
-			{
-				player.openGui(Agriculture.instance, GUIIds.ICEBOX, world, x, y, z);
-				return true;
-			}
+    @Override
+    public boolean onBlockActivated(final World world, final int x, final int y, final int z, final EntityPlayer player, final int side, final float xFace, final float yFace, final float zFace)
+    {
+        if (player.isSneaking()) { return false; }
 
-			return true;
-		}
-		return true;
-	}
+        // (>_>) //
+        if (!world.isRemote)
+        {
+            final int blockMetadata = world.getBlockMetadata(x, y, z);
+            if (side == 1 || yFace > 0.76f) // (<_<) /// :P Deal with it keith
+                                            // :P
+            {
+                player.openGui(Agriculture.instance, GUIIds.ICEBOX, world, x, y, z);
+                return true;
+            }
+            if (side == blockMetadata)
+            {
+                player.openGui(Agriculture.instance, GUIIds.ICEBOX, world, x, y, z);
+                return true;
+            }
 
-	@Override
-	public TileEntity createNewTileEntity(World world) 
-	{
-		return new TileEntityIcebox();
-	}
+            return true;
+        }
+        return true;
+    }
 }

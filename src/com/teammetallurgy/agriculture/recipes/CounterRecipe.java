@@ -4,121 +4,138 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import com.teammetallurgy.agriculture.SubItem;
-
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
-import net.minecraft.world.World;
+import net.minecraftforge.oredict.OreDictionary;
 
-public class CounterRecipe implements ICounterRecipe
-{
+public class CounterRecipe implements ICounterRecipe {
 
-	private final ItemStack recipeOutput;
+    private final ItemStack baseItem;
 
-	public final List<ItemStack> recipeItems;
+    public final List<ItemStack> recipeItems;
 
-	private final ItemStack baseItem;
+    private final ItemStack recipeOutput;
 
-	public CounterRecipe(ItemStack outputStack, ItemStack baseItem, List par2List)
-	{
-		this.recipeOutput = outputStack;
-		this.recipeItems = par2List;
-		this.baseItem = baseItem;
-	}
+    public CounterRecipe(final ItemStack outputStack, final ItemStack baseItem, final List<ItemStack> par2List)
+    {
+        recipeOutput = outputStack;
+        recipeItems = par2List;
+        this.baseItem = baseItem;
+    }
 
-	public ItemStack getRecipeOutput()
-	{
-		return this.recipeOutput;
-	}
+    public ItemStack getCraftingResult()
+    {
+        return recipeOutput;
+    }
 
-	/**
-	 * Used to check if a recipe matches current crafting inventory
-	 */
-	public boolean matches(IInventory processor)
-	{
-		ArrayList arraylist = new ArrayList(this.recipeItems);
+    /**
+     * Returns an Item that is the result of this recipe
+     */
+    @Override
+    public ItemStack getCraftingResult(final IInventory procesor)
+    {
+        return recipeOutput.copy();
+    }
 
-		for (int k = 0; k < 4; ++k)
-		{
-			ItemStack stackInSlot = processor.getStackInSlot(k);
-			if (stackInSlot != null)
-			{
+    public ItemStack[] getIngredients()
+    {
+        final ArrayList<ItemStack> ret = new ArrayList<ItemStack>();
+        ret.add(baseItem);
+        ret.addAll(recipeItems);
 
-				int itemID = stackInSlot.getItem().itemID;
-				int damage = stackInSlot.getItemDamage();
-				if (itemID != baseItem.itemID || damage != baseItem.getItemDamage())
-				{
-					continue;
-				}
-			}
-			else
-			{
-				continue;
-			}
+        return ret.toArray(new ItemStack[] {});
+    }
 
-			for (int i = 0; i < 4; ++i)
-			{
-				for (int j = 0; j < 4; ++j)
-				{
-					ItemStack itemstack = processor.getStackInSlot((i + j * 4) + 4);
+    @Override
+    public ItemStack getRecipeOutput()
+    {
+        return recipeOutput.copy();
+    }
 
-					if (itemstack != null)
-					{
-						boolean flag = false;
-						Iterator iterator = arraylist.iterator();
+    /**
+     * Returns the size of the recipe area
+     */
+    @Override
+    public int getRecipeSize()
+    {
+        return recipeItems.size();
+    }
 
-						while (iterator.hasNext())
-						{
-							ItemStack itemstack1 = (ItemStack) iterator.next();
+    @Override
+    public boolean isMat(final ItemStack stack)
+    {
+        for (final ItemStack stack2 : recipeItems)
+        {
+            if (ItemStack.areItemStacksEqual(stack, stack2)) { return true; }
+        }
 
-							if (itemstack.itemID == itemstack1.itemID && (itemstack1.getItemDamage() == 32767 || itemstack.getItemDamage() == itemstack1.getItemDamage()))
-							{
-								flag = true;
-								arraylist.remove(itemstack1);
-								break;
-							}
-						}
-						
-						if (!flag)
-						{
-							return false;
-						}
-					}
-				}
-			}
+        if (RecipeUtils.matchesOreDict(stack, recipeItems.toArray(new ItemStack[recipeItems.size()]))) { return true; }
 
-			return arraylist.isEmpty();
-		}
-		return false;
-	}
+        return false;
+    }
 
-	/**
-	 * Returns an Item that is the result of this recipe
-	 */
-	public ItemStack getCraftingResult(IInventory procesor)
-	{
-		return this.recipeOutput.copy();
-	}
+    /**
+     * Used to check if a recipe matches current crafting inventory
+     */
+    @Override
+    public boolean matches(final IInventory processor)
+    {
+        final ArrayList<ItemStack> arraylist = new ArrayList<ItemStack>(recipeItems);
 
-	/**
-	 * Returns the size of the recipe area
-	 */
-	public int getRecipeSize()
-	{
-		return this.recipeItems.size();
-	}
+        for (int k = 0; k < 4; ++k)
+        {
+            final ItemStack stackInSlot = processor.getStackInSlot(k);
+            if (stackInSlot != null)
+            {
 
-	@Override
-	public boolean isMat(ItemStack stack)
-	{
-		for(ItemStack stack2: recipeItems) 
-		{
-			if(ItemStack.areItemStacksEqual(stack, stack2))
-			{
-				return true;
-			}
-		}
-		return false;
-	}
+                final int itemID = stackInSlot.getItem().itemID;
+                final int damage = stackInSlot.getItemDamage();
+                if (itemID != baseItem.itemID || damage != baseItem.getItemDamage())
+                {
+                    continue;
+                }
+            }
+            else
+            {
+                continue;
+            }
+
+            for (int i = 0; i < 4; ++i)
+            {
+                for (int j = 0; j < 4; ++j)
+                {
+                    final ItemStack itemstack = processor.getStackInSlot(i + j * 4 + 4);
+
+                    if (itemstack != null)
+                    {
+                        boolean flag = false;
+                        final Iterator<ItemStack> iterator = arraylist.iterator();
+
+                        while (iterator.hasNext())
+                        {
+                            final ItemStack itemstack1 = iterator.next();
+
+                            if (OreDictionary.itemMatches(itemstack1, itemstack, true) || RecipeUtils.matchesOreDict(itemstack1, itemstack))
+                            {
+                                flag = true;
+                                arraylist.remove(itemstack1);
+                                break;
+                            }
+                        }
+
+                        if (!flag) { return false; }
+                    }
+                }
+            }
+
+            return arraylist.isEmpty();
+        }
+        return false;
+    }
+
+    public boolean uses(final ItemStack ingredient)
+    {
+        return baseItem.isItemEqual(ingredient) || isMat(ingredient);
+    }
 
 }

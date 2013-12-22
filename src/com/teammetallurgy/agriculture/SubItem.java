@@ -8,110 +8,108 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.Icon;
 import net.minecraft.world.World;
 
-public class SubItem
-{
-	private SuperItem item;
-	public int itemID;
-	private int damage;
-	
-	private Icon itemIcon;
-	private String unlocalizedName;
-	private String textureName;
-	
-	public SubItem(int id, int damage)
-	{
-		if(Item.itemsList[id+256] == null)
-		{
-			item = new SuperItem(id);
-		}
-		else
-		{
-			if(Item.itemsList[id+256] instanceof SuperItem)
-			{
-				item = (SuperItem) Item.itemsList[id+256];
-			}
-			else
-			{
-	            System.out.println("CONFLICT @ " + id + " item slot already occupied by " + Item.itemsList[256 + id] + " while adding " + this);
-			}
-		}
-		
-		this.itemID = id;
-		this.damage = damage;
-		item.addSubItem(damage, this);
-	}
-	
-	public int getDamage()
-	{
-		return damage;
-	}
-	
-	public SubItem setUnlocalizedName(String unlocalizedName)
-	{
-		this.unlocalizedName = unlocalizedName;
-		this.setTextureName(unlocalizedName);
-		return this;
-	}
-	
-	public SubItem setTextureName(String textureName)
-	{
-		this.textureName = textureName;
-		return this;
-	}
-	
-	public String getUnlocalizedName(ItemStack itemstack)
-	{
-		return unlocalizedName;
-	}
+public class SubItem {
+    private final int damage;
+    private SuperItem item;
+    private Icon itemIcon;
 
-	public Icon getIcon()
-	{
-		return itemIcon;
-	}
+    public int itemID;
+    private String textureName;
+    private String unlocalizedName;
 
-	public void registerIcons(IconRegister iconRegister)
-	{
-		itemIcon = iconRegister.registerIcon("agriculture:" + textureName);
-	}
+    public SubItem(final int id, final int damage)
+    {
+        if (Item.itemsList[id + 256] == null)
+        {
+            item = new SuperItem(id);
+        }
+        else
+        {
+            if (Item.itemsList[id + 256] instanceof SuperItem)
+            {
+                item = (SuperItem) Item.itemsList[id + 256];
+            }
+            else
+            {
+            }
+        }
 
-	public SubItem setCreativeTab(AgricultureTab tab)
-	{
-		item.setCreativeTab(tab);
-		return this;
-	}
-	
-	public ItemStack getItemStack()
-	{
-		return getItemStack(1);
-	}
+        itemID = id + 256;
+        this.damage = damage;
+        item.addSubItem(damage, this);
+    }
 
-	public ItemStack getItemStack(int size)
-	{
-		return new ItemStack(item.itemID, size, damage);
-	}
+    public int getDamage()
+    {
+        return damage;
+    }
 
-	public ItemStack onEaten(ItemStack par1ItemStack, World par2World, EntityPlayer par3EntityPlayer)
-	{
-		return par1ItemStack;
-	}
+    public Icon getIcon()
+    {
+        return itemIcon;
+    }
 
-	public ItemStack onItemRightClick(ItemStack par1ItemStack, World par2World, EntityPlayer par3EntityPlayer)
-	{
-		return par1ItemStack;
-	}
+    public ItemStack getItemStack()
+    {
+        return this.getItemStack(1);
+    }
 
-	public EnumAction getItemUseAction(ItemStack par1ItemStack)
-	{
-		return EnumAction.none;
-	}
+    public ItemStack getItemStack(final int size)
+    {
+        return new ItemStack(item.itemID, size, damage);
+    }
 
-	public int getMaxItemUseDuration(ItemStack par1ItemStack)
-	{
-		return 0;
-	}
+    public EnumAction getItemUseAction(final ItemStack par1ItemStack)
+    {
+        return EnumAction.none;
+    }
 
-	public boolean onItemUse(ItemStack par1ItemStack, EntityPlayer par2EntityPlayer, World par3World, int par4, int par5, int par6, int par7, float par8, float par9, float par10)
-	{
-		return false;
-	}
+    public int getMaxItemUseDuration(final ItemStack par1ItemStack)
+    {
+        return 0;
+    }
+
+    public String getUnlocalizedName(final ItemStack itemstack)
+    {
+        return unlocalizedName;
+    }
+
+    public ItemStack onEaten(final ItemStack par1ItemStack, final World par2World, final EntityPlayer par3EntityPlayer)
+    {
+        return par1ItemStack;
+    }
+
+    public ItemStack onItemRightClick(final ItemStack par1ItemStack, final World par2World, final EntityPlayer par3EntityPlayer)
+    {
+        return par1ItemStack;
+    }
+
+    public boolean onItemUse(final ItemStack par1ItemStack, final EntityPlayer par2EntityPlayer, final World par3World, final int par4, final int par5, final int par6, final int par7, final float par8, final float par9, final float par10)
+    {
+        return false;
+    }
+
+    public void registerIcons(final IconRegister iconRegister)
+    {
+        itemIcon = iconRegister.registerIcon("agriculture:" + textureName);
+    }
+
+    public SubItem setCreativeTab(final AgricultureTab tab)
+    {
+        item.setCreativeTab(tab);
+        return this;
+    }
+
+    public SubItem setTextureName(final String textureName)
+    {
+        this.textureName = textureName;
+        return this;
+    }
+
+    public SubItem setUnlocalizedName(final String unlocalizedName)
+    {
+        this.unlocalizedName = unlocalizedName;
+        setTextureName(unlocalizedName);
+        return this;
+    }
 }

@@ -17,311 +17,316 @@ import net.minecraft.network.packet.Packet250CustomPayload;
 
 import com.teammetallurgy.agriculture.Agriculture;
 import com.teammetallurgy.agriculture.machines.BaseMachineTileEntity;
+import com.teammetallurgy.agriculture.recipes.FreezerRecipes;
 
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.network.PacketDispatcher;
 import cpw.mods.fml.relauncher.Side;
 
-public class TileEntityIcebox extends BaseMachineTileEntity
-{
-	private InventoryIcebox inventory = new InventoryIcebox("", false, 13, this);
-	private int[] timeInSlot = new int[inventory.getSizeInventory()];
+public class TileEntityIcebox extends BaseMachineTileEntity {
+    public static int getItemBurnTime(final ItemStack par0ItemStack)
+    {
+        if (par0ItemStack == null)
+        {
+            return 0;
+        }
+        else
+        {
+            final int i = par0ItemStack.getItem().itemID;
+            par0ItemStack.getItem();
 
-	private int maxTemp = 1000;
-	private int temp = maxTemp;
-	private int fuelRemaining;
-	private int fuelHotness;
+            if (par0ItemStack.getItem() instanceof ItemBlock && Block.blocksList[i] != null)
+            {
+                final Block block = Block.blocksList[i];
 
-	private boolean isCooking = false;
+                if (block == Block.snow) { return 6400; }
+                if (block == Block.ice) { return 1600; }
+            }
 
-	int sync = 0;
+            if (i == Item.snowball.itemID) { return 1600; }
+        }
 
-	int numUsingPlayers;
-	public float doorAngle;
-	public float prevDoorAngle;
+        return 0;
+    }
 
+    public float doorAngle;
 
-	public int getTemp()
-	{
-		return temp;
-	}
+    private int fuelHotness;
+    private int fuelRemaining;
+    private final InventoryIcebox inventory = new InventoryIcebox("", false, 13, this);
+    private boolean isCooking = false;
 
-	public void updateEntity()
-	{
+    private int maxTemp = 1000;
 
-		if (sync-- == 0)
-		{
-			sendPacket();
-		}
+    int numUsingPlayers;
 
-		if (fuelRemaining > 0)
-		{
-			isCooking = true;
-			fuelRemaining--;
-			if (temp > 0)
-			{
-				temp += fuelHotness;
-			} 
-			else if (temp <= maxTemp)
-			{
-				temp++;
-			}
+    public float prevDoorAngle;
+    int sync = 0;
+    private int temp = maxTemp;
 
-			if (!worldObj.isRemote)
-			{
-				for (int i = 0; i < inventory.getSizeInventory() - 1; i++)
-				{
-					ItemStack stack = inventory.getStackInSlot(i + 1);
-					if (stack != null)
-					{
-						timeInSlot[i]++;
+    private int[] timeInSlot = new int[inventory.getSizeInventory()];
 
-						ItemStack result = IceboxRecipes.getResult(stack, timeInSlot[i] * temp); // replace
-																									// with
-																									// actually
-																									// heat
-																									// records
-						if (result != null)
-						{
-							inventory.setInventorySlotContents(i + 1, result.copy());
-							timeInSlot[i] = 0;
-							sendPacket();
-						}
-					} else
-					{
-						if (i < timeInSlot.length)
-							timeInSlot[i] = 0;
-					}
-				}
+    private void burnFuel()
+    {
+        final ItemStack fuelStack = inventory.getStackInSlot(0);
 
-			}
-		} else
-		{
-			isCooking = false;
-			burnFuel();
-		}
+        final int fuelAmount = TileEntityIcebox.getItemBurnTime(fuelStack);
+        if (fuelAmount > 0)
+        {
+            // TODO: add different "hotness" levels for different fuels
+            fuelHotness = 1;
 
-		if (fuelRemaining <= 0)
-		{
-			if (temp > 0)
-				temp--;
-		}
+            fuelRemaining += fuelAmount;
 
-		prevDoorAngle = doorAngle;
-		if (this.numUsingPlayers == 0 && doorAngle > 0.0F || this.numUsingPlayers > 0 && doorAngle < 1.0F)
-		{
-			if (this.numUsingPlayers > 0)
-			{
-				doorAngle += 0.1;
-			} else
-			{
-				doorAngle -= 0.1;
-			}
+            fuelStack.stackSize--;
 
-			if (doorAngle > 1.0F)
-			{
-				doorAngle = 1.0F;
-			}
+            if (fuelStack.stackSize == 0)
+            {
+                inventory.setInventorySlotContents(0, fuelStack.getItem().getContainerItemStack(fuelStack));
+            }
+        }
+    }
 
-			if (doorAngle < 0.0F)
-			{
-				doorAngle = 0.0F;
-			}
-		}
-	}
+    @Override
+    public Packet getDescriptionPacket()
+    {
+        final NBTTagCompound tag = new NBTTagCompound();
+        writeCustomNBT(tag);
+        return new Packet132TileEntityData(xCoord, yCoord, zCoord, 1, tag);
+    }
 
-	public int getFuelRemaining()
-	{
-		return fuelRemaining;
-	}
+    public int getFuelRemaining()
+    {
+        return fuelRemaining;
+    }
 
-	public int getMaxTemp()
-	{
-		return maxTemp;
-	}
+    public InventoryIcebox getInventory()
+    {
+        return inventory;
+    }
 
-	public boolean isCooking()
-	{
-		return isCooking;
-	}
+    public int getMaxTemp()
+    {
+        return maxTemp;
+    }
 
-	public InventoryIcebox getInventory()
-	{
-		return inventory;
-	}
-	
-	private void burnFuel()
-	{
-		ItemStack fuelStack = inventory.getStackInSlot(0);
+    public int getTemp()
+    {
+        return temp;
+    }
 
-		int fuelAmount = getItemBurnTime(fuelStack);
-		if (fuelAmount > 0)
-		{
-			// TODO: add different "hotness" levels for different fuels
-			fuelHotness = 1;
+    public boolean isCooking()
+    {
+        return isCooking;
+    }
 
-			fuelRemaining += fuelAmount;
+    @Override
+    public void onDataPacket(final INetworkManager net, final Packet132TileEntityData pkt)
+    {
+        readCustomNBT(pkt.data);
+    }
 
-			fuelStack.stackSize--;
+    @Override
+    public void readCustomNBT(final NBTTagCompound tag)
+    {
+        temp = tag.getInteger("temp");
+        maxTemp = tag.getInteger("maxTemp");
+        fuelRemaining = tag.getInteger("fuelRemaining");
+        fuelHotness = tag.getInteger("fuelHotness");
 
-			if (fuelStack.stackSize == 0)
-			{
-				inventory.setInventorySlotContents(0, fuelStack.getItem().getContainerItemStack(fuelStack));
-			}
-		}
-	}
+        timeInSlot = tag.getIntArray("timeInSlot");
 
-	public static int getItemBurnTime(ItemStack par0ItemStack)
-	{
-		if (par0ItemStack == null)
-		{
-			return 0;
-		} 
-		else
-		{
-			int i = par0ItemStack.getItem().itemID;
-			Item item = par0ItemStack.getItem();
+        final NBTTagList tagList = tag.getTagList("Items");
 
-			if (par0ItemStack.getItem() instanceof ItemBlock && Block.blocksList[i] != null)
-			{
-				Block block = Block.blocksList[i];
+        for (int i = 0; i < tagList.tagCount(); i++)
+        {
+            final NBTTagCompound base = (NBTTagCompound) tagList.tagAt(i);
+            final int slot = Integer.valueOf(base.getByte("Slot"));
+            inventory.setInventorySlotContents(slot, ItemStack.loadItemStackFromNBT(base));
+        }
+    }
 
-				if (block == Block.snow)
-				{
-					return 6400;
-				}
-				if (block == Block.ice)
-				{
-					return 1600;
-				}
-			}
+    @Override
+    public void readFromNBT(final NBTTagCompound tag)
+    {
+        super.readFromNBT(tag);
+        readCustomNBT(tag);
+    }
 
-			if (i == Item.snowball.itemID)
-				return 1600;
-		}
-		
-		return 0;
-	}
+    @Override
+    public boolean receiveClientEvent(final int id, final int value)
+    {
+        if (id == 1)
+        {
+            numUsingPlayers = value;
+            return true;
+        }
+        else
+        {
+            return super.receiveClientEvent(id, value);
+        }
+    }
 
-	@Override
-	public void readFromNBT(NBTTagCompound tag)
-	{
-		super.readFromNBT(tag);
-		readCustomNBT(tag);
-	}
+    public void sendPacket()
+    {
+        final ByteArrayOutputStream bos = new ByteArrayOutputStream(140);
+        final DataOutputStream dos = new DataOutputStream(bos);
+        try
+        {
+            dos.writeShort(0);
+            dos.writeInt(xCoord);
+            dos.writeInt(yCoord);
+            dos.writeInt(zCoord);
+            dos.writeByte(direction);
+            dos.writeInt(fuelRemaining);
+            dos.writeInt(temp);
+            dos.writeInt(maxTemp);
+        }
+        catch (final IOException e)
+        {
+            System.out.println(e);
+        }
 
-	@Override
-	public void writeToNBT(NBTTagCompound tag)
-	{
-		super.writeToNBT(tag);
-		writeCustomNBT(tag);
-	}
+        final Packet250CustomPayload packet = new Packet250CustomPayload();
+        packet.channel = Agriculture.MODID;
+        packet.data = bos.toByteArray();
+        packet.length = bos.size();
+        packet.isChunkDataPacket = true;
 
-	@Override
-	public void writeCustomNBT(NBTTagCompound tag)
-	{
-		tag.setInteger("temp", temp);
-		tag.setInteger("maxTemp", maxTemp);
-		tag.setInteger("fuelRemaining", fuelRemaining);
-		tag.setInteger("fuelHotness", fuelHotness);
+        if (packet != null)
+        {
+            if (FMLCommonHandler.instance().getEffectiveSide() == Side.SERVER)
+            {
+                PacketDispatcher.sendPacketToAllAround(xCoord, yCoord, zCoord, 16, worldObj.provider.dimensionId, packet);
+            }
+            else
+            {
+                PacketDispatcher.sendPacketToServer(packet);
+            }
+        }
+    }
 
-		tag.setIntArray("timeInSlot", timeInSlot);
+    @Override
+    public void updateEntity()
+    {
 
-		NBTTagList itemListTag = new NBTTagList();
-		for (int i = 0; i < this.inventory.getSizeInventory(); ++i)
-		{
-			if (this.inventory.getStackInSlot(i) != null)
-			{
-				NBTTagCompound itemTag = new NBTTagCompound();
-				itemTag.setByte("Slot", (byte) i);
-				this.inventory.getStackInSlot(i).writeToNBT(itemTag);
-				itemListTag.appendTag(itemTag);
-			}
-		}
+        if (sync-- == 0)
+        {
+            sendPacket();
+        }
 
-		tag.setTag("Items", itemListTag);
-	}
+        if (fuelRemaining > 0)
+        {
+            isCooking = true;
+            fuelRemaining--;
+            if (temp > 0)
+            {
+                temp += fuelHotness;
+            }
+            else if (temp <= maxTemp)
+            {
+                temp++;
+            }
 
-	@Override
-	public void readCustomNBT(NBTTagCompound tag)
-	{
-		temp = tag.getInteger("temp");
-		maxTemp = tag.getInteger("maxTemp");
-		fuelRemaining = tag.getInteger("fuelRemaining");
-		fuelHotness = tag.getInteger("fuelHotness");
+            if (!worldObj.isRemote)
+            {
+                for (int i = 0; i < inventory.getSizeInventory() - 1; i++)
+                {
+                    final ItemStack stack = inventory.getStackInSlot(i + 1);
+                    if (stack != null)
+                    {
+                        timeInSlot[i]++;
 
-		timeInSlot = tag.getIntArray("timeInSlot");
+                        final ItemStack result = FreezerRecipes.getInstance().findMatchingRecipe(stack, timeInSlot[i] * temp); // replace
+                        // with
+                        // actually
+                        // heat
+                        // records
+                        if (result != null)
+                        {
+                            inventory.setInventorySlotContents(i + 1, result.copy());
+                            timeInSlot[i] = 0;
+                            sendPacket();
+                        }
+                    }
+                    else
+                    {
+                        if (i < timeInSlot.length)
+                        {
+                            timeInSlot[i] = 0;
+                        }
+                    }
+                }
 
-		NBTTagList tagList = tag.getTagList("Items");
+            }
+        }
+        else
+        {
+            isCooking = false;
+            burnFuel();
+        }
 
-		for (int i = 0; i < tagList.tagCount(); i++)
-		{
-			NBTTagCompound base = (NBTTagCompound) tagList.tagAt(i);
-			int slot = Integer.valueOf(base.getByte("Slot"));
-			this.inventory.setInventorySlotContents(slot, ItemStack.loadItemStackFromNBT(base));
-		}
-	}
+        if (fuelRemaining <= 0)
+        {
+            if (temp > 0)
+            {
+                temp--;
+            }
+        }
 
-	@Override
-	public Packet getDescriptionPacket()
-	{
-		final NBTTagCompound tag = new NBTTagCompound();
-		writeCustomNBT(tag);
-		return new Packet132TileEntityData(xCoord, yCoord, zCoord, 1, tag);
-	}
-	
-	@Override
-	public void onDataPacket(INetworkManager net, Packet132TileEntityData pkt)
-	{
-		readCustomNBT(pkt.customParam1);
-	}
+        prevDoorAngle = doorAngle;
+        if (numUsingPlayers == 0 && doorAngle > 0.0F || numUsingPlayers > 0 && doorAngle < 1.0F)
+        {
+            if (numUsingPlayers > 0)
+            {
+                doorAngle += 0.1;
+            }
+            else
+            {
+                doorAngle -= 0.1;
+            }
 
-	public void sendPacket()
-	{
-		ByteArrayOutputStream bos = new ByteArrayOutputStream(140);
-		DataOutputStream dos = new DataOutputStream(bos);
-		try
-		{
-			dos.writeShort(0);
-			dos.writeInt(xCoord);
-			dos.writeInt(yCoord);
-			dos.writeInt(zCoord);
-			dos.writeByte(direction);
-			dos.writeInt(fuelRemaining);
-			dos.writeInt(temp);
-			dos.writeInt(maxTemp);
-		} catch (IOException e)
-		{
-			System.out.println(e);
-		}
+            if (doorAngle > 1.0F)
+            {
+                doorAngle = 1.0F;
+            }
 
-		Packet250CustomPayload packet = new Packet250CustomPayload();
-		packet.channel = Agriculture.MODID;
-		packet.data = bos.toByteArray();
-		packet.length = bos.size();
-		packet.isChunkDataPacket = true;
+            if (doorAngle < 0.0F)
+            {
+                doorAngle = 0.0F;
+            }
+        }
+    }
 
-		if (packet != null)
-		{
-			if (FMLCommonHandler.instance().getEffectiveSide() == Side.SERVER)
-			{
-				PacketDispatcher.sendPacketToAllAround(xCoord, yCoord, zCoord, 16, worldObj.provider.dimensionId, packet);
-			} else
-			{
-				PacketDispatcher.sendPacketToServer(packet);
-			}
-		}
-	}
+    @Override
+    public void writeCustomNBT(final NBTTagCompound tag)
+    {
+        tag.setInteger("temp", temp);
+        tag.setInteger("maxTemp", maxTemp);
+        tag.setInteger("fuelRemaining", fuelRemaining);
+        tag.setInteger("fuelHotness", fuelHotness);
 
-	public boolean receiveClientEvent(int id, int value)
-	{
-		if (id == 1)
-		{
-			this.numUsingPlayers = value;
-			return true;
-		} else
-		{
-			return super.receiveClientEvent(id, value);
-		}
-	}
+        tag.setIntArray("timeInSlot", timeInSlot);
+
+        final NBTTagList itemListTag = new NBTTagList();
+        for (int i = 0; i < inventory.getSizeInventory(); ++i)
+        {
+            if (inventory.getStackInSlot(i) != null)
+            {
+                final NBTTagCompound itemTag = new NBTTagCompound();
+                itemTag.setByte("Slot", (byte) i);
+                inventory.getStackInSlot(i).writeToNBT(itemTag);
+                itemListTag.appendTag(itemTag);
+            }
+        }
+
+        tag.setTag("Items", itemListTag);
+    }
+
+    @Override
+    public void writeToNBT(final NBTTagCompound tag)
+    {
+        super.writeToNBT(tag);
+        writeCustomNBT(tag);
+    }
 }

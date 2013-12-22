@@ -2,36 +2,47 @@ package com.teammetallurgy.agriculture.recipes;
 
 import net.minecraft.item.ItemStack;
 
-public class FrierRecipe
-{
+public class FrierRecipe {
 
-	ItemStack base;
-	ItemStack result;
-	int cookTime;
+    ItemStack base;
+    int cookTime;
+    ItemStack result;
 
-	public FrierRecipe(ItemStack item, ItemStack result, int cookTime)
-	{
-		this.base = item;
-		this.result = result;
-		this.cookTime = cookTime;
-	}
+    public FrierRecipe(final ItemStack item, final ItemStack result, final int cookTime)
+    {
+        base = item;
+        this.result = result;
+        this.cookTime = cookTime;
+    }
 
-	public boolean matches(ItemStack stack, int time)
-	{
-		if (stack != null)
-		{
-			if (stack.isItemEqual(base) && time >= cookTime)
-			{
-				return true;
-			}
-		}
+    public ItemStack getCraftingResult()
+    {
+        return result.copy();
+    }
 
-		return false;
-	}
+    public ItemStack getInput()
+    {
+        return base.copy();
+    }
 
-	public ItemStack getCraftingResult()
-	{
-		return result.copy();
-	}
+    public ItemStack getResult()
+    {
+        return result.copy();
+    }
 
+    public boolean matches(final ItemStack stack, final int time)
+    {
+        if (stack != null)
+        {
+            if (time >= cookTime)
+            {
+
+                if (stack.isItemEqual(base)) { return true; }
+
+                if (RecipeUtils.matchesOreDict(stack, base)) { return true; }
+            }
+        }
+
+        return false;
+    }
 }

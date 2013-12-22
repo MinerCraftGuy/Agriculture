@@ -19,265 +19,259 @@ import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.network.PacketDispatcher;
 import cpw.mods.fml.relauncher.Side;
 
-public class TileEntityProcessor extends FuelMachineTileEntity
-{
-	private InventoryProcessor inventory = new InventoryProcessor("", false, 3);
+public class TileEntityProcessor extends FuelMachineTileEntity {
+    private int coolDown = 0;
 
-	private IInventory fuelSlot = new InventoryBasic("", false, 1);
+    private final IInventory fuelSlot = new InventoryBasic("", false, 1);
 
-	private int sync = 0;
-	private int processingTime = 0;
-	private ItemStack result;
-	private int coolDown = 0;
+    private final InventoryProcessor inventory = new InventoryProcessor("", false, 3);
+    private int processingTime = 0;
+    private ItemStack result;
 
-	public IInventory getInventory()
-	{
-		return inventory;
-	}
+    private boolean canProcess(final ItemStack stackInSlot, final ItemStack stackInSlot22)
+    {
+        if (result == null) { return false; }
 
-	public int getFuelSlot()
-	{
-		return 0;
-	}
-	
-	
+        final ItemStack stackInSlot2 = inventory.getStackInSlot(2);
 
-	@Override
-	public void updateEntity()
-	{
-		super.updateEntity();
-		
-		if (this.processingTime > 0)
-		{
-			--this.processingTime;
-			--this.currentItemBurnTime;
-			--this.fuelRemaining;
-		}
+        final ItemStack result2 = ProcessorRecipes.getInstance().findMatchingRecipe(stackInSlot, stackInSlot22);
 
-		if (this.worldObj.isRemote)
-			return;
-		if (this.processingTime == 0)
-		{
-			if (currentItemBurnTime == 0)
-			{
-				process();
-			}
+        if (result2 == null) { return false; }
 
-			ItemStack stackInSlot = inventory.getStackInSlot(0);
-			ItemStack stackInSlot2 = inventory.getStackInSlot(1);
+        if (stackInSlot2 == null) { return true; }
 
-			if (coolDown-- <= 0)
-			{
-				this.result = ProcessorRecipes.getInstance().findMatchingRecipe(stackInSlot, stackInSlot2);
+        if (result2.itemID == stackInSlot2.itemID && result2.getItemDamage() == stackInSlot2.getItemDamage())
+        {
+            final ItemStack copy = stackInSlot2.copy();
+            if (copy.stackSize++ >= inventory.getInventoryStackLimit())
+            {
+                return false;
+            }
+            else
+            {
+                return true;
+            }
+        }
 
-				this.coolDown = this.processingTime = getProcessTime(result);
+        return result2 != null;
+    }
 
-				if (this.processingTime > 0 && canProcess(stackInSlot, stackInSlot2) && fuelRemaining >= processingTime)
-				{
-					if (stackInSlot2 != null)
-					{
-						this.currentItemBurnTime = processingTime;
-						--stackInSlot2.stackSize;
-						sendPacket();
-						if (stackInSlot2.stackSize == 0)
-						{
-							inventory.setInventorySlotContents(1, null);
-						}
+    public int getCoolDown()
+    {
+        return coolDown;
+    }
 
-						if (stackInSlot != null)
-						{
-							--stackInSlot.stackSize;
-							if (stackInSlot.stackSize == 0)
-							{
-								inventory.setInventorySlotContents(0, null);
-							}
-						}
-					} else
-					{
-						this.currentItemBurnTime = processingTime;
-						--stackInSlot.stackSize;
-						sendPacket();
-						if (stackInSlot.stackSize == 0)
-						{
-							inventory.setInventorySlotContents(0, null);
-						}
-					}
-				}
-			}
-		}
-	}
+    @Override
+    public IInventory getFuelInventory()
+    {
+        return fuelSlot;
+    }
 
+    @Override
+    public int getFuelSlot()
+    {
+        return 0;
+    }
 
-	public void process()
-	{
-		if (result != null)
-		{
-			ItemStack stackInSlot = inventory.getStackInSlot(2);
-			if (stackInSlot != null && stackInSlot.itemID == result.itemID && stackInSlot.getItemDamage() == result.getItemDamage())
-			{
-				stackInSlot.stackSize += result.stackSize;
-			} else
-			{
-				inventory.setInventorySlotContents(2, result.copy());
-			}
+    public IInventory getInventory()
+    {
+        return inventory;
+    }
 
-			result = null;
-			this.currentItemBurnTime = -1;
-			sendPacket();
-		}
-	}
+    private int getProcessTime(final ItemStack stackInSlot)
+    {
+        return ProcessorRecipes.getProcessTime(stackInSlot);
+    }
 
-	public int getCoolDown()
-	{
-		return coolDown;
-	}
+    public void process()
+    {
+        if (result != null)
+        {
+            final ItemStack stackInSlot = inventory.getStackInSlot(2);
+            if (stackInSlot != null && stackInSlot.itemID == result.itemID && stackInSlot.getItemDamage() == result.getItemDamage())
+            {
+                stackInSlot.stackSize += result.stackSize;
+            }
+            else
+            {
+                inventory.setInventorySlotContents(2, result.copy());
+            }
 
-	public void setCoolDown(int coolDown)
-	{
-		this.coolDown = coolDown;
-	}
+            result = null;
+            currentItemBurnTime = -1;
+            sendPacket();
+        }
+    }
 
-	private boolean canProcess(ItemStack stackInSlot, ItemStack stackInSlot22)
-	{
-		if (result == null)
-			return false;
+    @Override
+    public void readCustomNBT(final NBTTagCompound tag)
+    {
+        super.readCustomNBT(tag);
+        coolDown = tag.getInteger("CoolDown");
+        processingTime = tag.getInteger("ProcessingTime");
 
-		ItemStack stackInSlot2 = inventory.getStackInSlot(2);
+        final NBTTagList tagList = tag.getTagList("Items");
 
-		ItemStack result2 = ProcessorRecipes.getInstance().findMatchingRecipe(stackInSlot, stackInSlot22);
+        for (int i = 0; i < tagList.tagCount(); i++)
+        {
+            final NBTTagCompound base = (NBTTagCompound) tagList.tagAt(i);
+            final int slot = Integer.valueOf(base.getByte("Slot"));
+            inventory.setInventorySlotContents(slot, ItemStack.loadItemStackFromNBT(base));
+        }
+    }
 
-		if (result2 == null)
-		{
-			return false;
-		}
+    public void sendPacket()
+    {
+        final ByteArrayOutputStream bos = new ByteArrayOutputStream(140);
+        final DataOutputStream dos = new DataOutputStream(bos);
+        try
+        {
+            dos.writeShort(1);
+            dos.writeInt(xCoord);
+            dos.writeInt(yCoord);
+            dos.writeInt(zCoord);
+            dos.writeByte(direction);
+            dos.writeInt(processingTime);
+            dos.writeInt(currentItemBurnTime);
+            dos.writeInt(fuelRemaining);
+            dos.writeInt(coolDown);
 
-		if (stackInSlot2 == null)
-		{
-			return true;
-		}
+            if (result == null)
+            {
+                dos.writeInt(0);
+            }
+            else
+            {
+                dos.writeInt(1);
+                dos.writeInt(result.getItem().itemID);
+                dos.writeInt(result.getItemDamage());
+                dos.writeInt(result.stackSize);
+            }
 
-		if (result2.itemID == stackInSlot2.itemID && result2.getItemDamage() == stackInSlot2.getItemDamage())
-		{
-			ItemStack copy = stackInSlot2.copy();
-			if (copy.stackSize++ >= inventory.getInventoryStackLimit())
-			{
-				return false;
-			} else
-			{
-				return true;
-			}
-		}
+        }
+        catch (final IOException e)
+        {
+            System.out.println(e);
+        }
 
-		return result2 != null;
-	}
+        final Packet250CustomPayload packet = new Packet250CustomPayload();
+        packet.channel = Agriculture.MODID;
+        packet.data = bos.toByteArray();
+        packet.length = bos.size();
+        packet.isChunkDataPacket = true;
 
-	public void setProcessingTime(int processingTime)
-	{
-		this.processingTime = processingTime;
-	}
+        if (packet != null)
+        {
+            if (FMLCommonHandler.instance().getEffectiveSide() == Side.SERVER)
+            {
+                PacketDispatcher.sendPacketToAllAround(xCoord, yCoord, zCoord, 16, worldObj.provider.dimensionId, packet);
+            }
+            else
+            {
+                PacketDispatcher.sendPacketToServer(packet);
+            }
+        }
+    }
 
-	public void setResult(ItemStack result)
-	{
-		this.result = result;
-	}
+    public void setCoolDown(final int coolDown)
+    {
+        this.coolDown = coolDown;
+    }
 
-	private int getProcessTime(ItemStack stackInSlot)
-	{
-		return ProcessorRecipes.getProcessTime(stackInSlot);
-	}
+    public void setProcessingTime(final int processingTime)
+    {
+        this.processingTime = processingTime;
+    }
 
-	public void sendPacket()
-	{
-		ByteArrayOutputStream bos = new ByteArrayOutputStream(140);
-		DataOutputStream dos = new DataOutputStream(bos);
-		try
-		{
-			dos.writeShort(1);
-			dos.writeInt(xCoord);
-			dos.writeInt(yCoord);
-			dos.writeInt(zCoord);
-			dos.writeByte(direction);
-			dos.writeInt(processingTime);
-			dos.writeInt(currentItemBurnTime);
-			dos.writeInt(fuelRemaining);
-			dos.writeInt(coolDown);
+    public void setResult(final ItemStack result)
+    {
+        this.result = result;
+    }
 
-			if (result == null)
-			{
-				dos.writeInt(0);
-			} else
-			{
-				dos.writeInt(1);
-				dos.writeInt(result.getItem().itemID);
-				dos.writeInt(result.getItemDamage());
-				dos.writeInt(result.stackSize);
-			}
+    @Override
+    public void updateEntity()
+    {
+        super.updateEntity();
 
-		} catch (IOException e)
-		{
-			System.out.println(e);
-		}
+        if (processingTime > 0)
+        {
+            --processingTime;
+            --currentItemBurnTime;
+            --fuelRemaining;
+        }
 
-		Packet250CustomPayload packet = new Packet250CustomPayload();
-		packet.channel = Agriculture.MODID;
-		packet.data = bos.toByteArray();
-		packet.length = bos.size();
-		packet.isChunkDataPacket = true;
+        if (worldObj.isRemote) { return; }
+        if (processingTime == 0)
+        {
+            if (currentItemBurnTime == 0)
+            {
+                process();
+            }
 
-		if (packet != null)
-		{
-			if (FMLCommonHandler.instance().getEffectiveSide() == Side.SERVER)
-			{
-				PacketDispatcher.sendPacketToAllAround(xCoord, yCoord, zCoord, 16, worldObj.provider.dimensionId, packet);
-			} else
-			{
-				PacketDispatcher.sendPacketToServer(packet);
-			}
-		}
-	}
+            final ItemStack stackInSlot = inventory.getStackInSlot(0);
+            final ItemStack stackInSlot2 = inventory.getStackInSlot(1);
 
-	@Override
-	public void readCustomNBT(NBTTagCompound tag)
-	{
-		super.readCustomNBT(tag);
-		this.coolDown = tag.getInteger("CoolDown");
-		this.processingTime = tag.getInteger("ProcessingTime");
+            if (coolDown-- <= 0)
+            {
+                result = ProcessorRecipes.getInstance().findMatchingRecipe(stackInSlot, stackInSlot2);
 
-		NBTTagList tagList = tag.getTagList("Items");
+                coolDown = processingTime = getProcessTime(result);
 
-		for (int i = 0; i < tagList.tagCount(); i++)
-		{
-			NBTTagCompound base = (NBTTagCompound) tagList.tagAt(i);
-			int slot = Integer.valueOf(base.getByte("Slot"));
-			inventory.setInventorySlotContents(slot, ItemStack.loadItemStackFromNBT(base));
-		}
-	}
+                if (processingTime > 0 && canProcess(stackInSlot, stackInSlot2) && fuelRemaining >= processingTime)
+                {
+                    if (stackInSlot2 != null)
+                    {
+                        currentItemBurnTime = processingTime;
+                        --stackInSlot2.stackSize;
+                        sendPacket();
+                        if (stackInSlot2.stackSize == 0)
+                        {
+                            inventory.setInventorySlotContents(1, null);
+                        }
 
-	@Override
-	public void writeCustomNBT(NBTTagCompound tag)
-	{
-		super.writeCustomNBT(tag);
-		tag.setInteger("CoolDown", coolDown);
-		tag.setInteger("ProcessingTime", processingTime);
+                        if (stackInSlot != null)
+                        {
+                            --stackInSlot.stackSize;
+                            if (stackInSlot.stackSize == 0)
+                            {
+                                inventory.setInventorySlotContents(0, null);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        currentItemBurnTime = processingTime;
+                        --stackInSlot.stackSize;
+                        sendPacket();
+                        if (stackInSlot.stackSize == 0)
+                        {
+                            inventory.setInventorySlotContents(0, null);
+                        }
+                    }
+                }
+            }
+        }
+    }
 
-		NBTTagList itemListTag = new NBTTagList();
-		for (int i = 0; i < this.inventory.getSizeInventory(); ++i)
-		{
-			if (this.inventory.getStackInSlot(i) != null)
-			{
-				NBTTagCompound itemTag = new NBTTagCompound();
-				itemTag.setByte("Slot", (byte) i);
-				this.inventory.getStackInSlot(i).writeToNBT(itemTag);
-				itemListTag.appendTag(itemTag);
-			}
-		}
+    @Override
+    public void writeCustomNBT(final NBTTagCompound tag)
+    {
+        super.writeCustomNBT(tag);
+        tag.setInteger("CoolDown", coolDown);
+        tag.setInteger("ProcessingTime", processingTime);
 
-		tag.setTag("Items", itemListTag);
-	}
+        final NBTTagList itemListTag = new NBTTagList();
+        for (int i = 0; i < inventory.getSizeInventory(); ++i)
+        {
+            if (inventory.getStackInSlot(i) != null)
+            {
+                final NBTTagCompound itemTag = new NBTTagCompound();
+                itemTag.setByte("Slot", (byte) i);
+                inventory.getStackInSlot(i).writeToNBT(itemTag);
+                itemListTag.appendTag(itemTag);
+            }
+        }
 
-	@Override
-	public IInventory getFuelInventory()
-	{
-		return fuelSlot;
-	}
+        tag.setTag("Items", itemListTag);
+    }
 }

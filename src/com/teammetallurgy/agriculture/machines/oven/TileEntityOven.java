@@ -5,10 +5,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 
 import net.minecraft.block.Block;
-import net.minecraft.block.BlockChest;
 import net.minecraft.block.material.Material;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.inventory.IInventory;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemHoe;
@@ -23,363 +20,353 @@ import net.minecraft.network.packet.Packet132TileEntityData;
 import net.minecraft.network.packet.Packet250CustomPayload;
 
 import com.teammetallurgy.agriculture.Agriculture;
-import com.teammetallurgy.agriculture.AgricultureItems;
 import com.teammetallurgy.agriculture.food.ICookable;
-import com.teammetallurgy.agriculture.gui.OvenRecipes;
 import com.teammetallurgy.agriculture.machines.BaseMachineTileEntity;
+import com.teammetallurgy.agriculture.recipes.OvenRecipes;
 
-import cpw.mods.fml.client.FMLClientHandler;
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.network.PacketDispatcher;
 import cpw.mods.fml.common.registry.GameRegistry;
 import cpw.mods.fml.relauncher.Side;
 
-public class TileEntityOven extends BaseMachineTileEntity
-{
-	private InventoryOven inventoryOven = new InventoryOven("", false, 20, this);
+public class TileEntityOven extends BaseMachineTileEntity {
+    private static int fuelSlot = 0;
 
-	private static int fuelSlot = 0;
-	private static int numOvenSlots = 16;
-	private static int ovenInventorySlotStart = 1;
-	private static int ovenInventorySlotEnd = ovenInventorySlotStart + numOvenSlots - 1;
-	private static int ovenRacksStart = 17;
+    private static int numOvenSlots = 16;
+    private static int ovenInventorySlotStart = 1;
 
-	private int[] timeInOvenSlot = new int[numOvenSlots];
+    public static int getItemBurnTime(final ItemStack par0ItemStack)
+    {
+        if (par0ItemStack == null)
+        {
+            return 0;
+        }
+        else
+        {
+            final int i = par0ItemStack.getItem().itemID;
+            final Item item = par0ItemStack.getItem();
 
-	private int temp;
-	private int maxTemp = 1000;
-	private int fuelRemaining;
-	private int fuelHotness;
+            if (par0ItemStack.getItem() instanceof ItemBlock && Block.blocksList[i] != null)
+            {
+                final Block block = Block.blocksList[i];
 
-	private boolean isCooking = false;
+                if (block == Block.woodSingleSlab) { return 150; }
 
-	int sync = 0;
+                if (block.blockMaterial == Material.wood) { return 300; }
 
-	int numUsingPlayers;
-	public float doorAngle;
-	public float prevDoorAngle;
+                if (block == Block.coalBlock) { return 16000; }
+            }
 
-	public int getTemp()
-	{
-		return temp;
-	}
+            if (item instanceof ItemTool && ((ItemTool) item).getToolMaterialName().equals("WOOD")) { return 200; }
+            if (item instanceof ItemSword && ((ItemSword) item).getToolMaterialName().equals("WOOD")) { return 200; }
+            if (item instanceof ItemHoe && ((ItemHoe) item).getMaterialName().equals("WOOD")) { return 200; }
+            if (i == Item.stick.itemID) { return 100; }
+            if (i == Item.coal.itemID) { return 1600; }
+            if (i == Item.bucketLava.itemID) { return 20000; }
+            if (i == Block.sapling.blockID) { return 100; }
+            if (i == Item.blazeRod.itemID) { return 2400; }
+            return GameRegistry.getFuelValue(par0ItemStack);
+        }
+    }
 
-	public void updateEntity()
-	{
+    public float doorAngle;
 
-		if (sync-- == 0)
-		{
-			sendPacket();
-		}
+    private int fuelHotness;
+    private int fuelRemaining;
+    private final InventoryOven inventoryOven = new InventoryOven("", false, 20, this);
+    private boolean isCooking = false;
 
-		if (fuelRemaining > 0)
-		{
-			isCooking = true;
-			fuelRemaining--;
-			if (temp < maxTemp)
-			{
-				temp += fuelHotness;
-			} else if (temp > maxTemp)
-			{
-				temp--;
-			}
+    private int maxTemp = 1000;
 
-			if (!worldObj.isRemote)
-			{
-				for (int i = 0; i < numOvenSlots; i++)
-				{
-					ItemStack stack = inventoryOven.getStackInSlot(ovenInventorySlotStart + i);
-					if (stack != null)
-					{
-						timeInOvenSlot[i]++;
-						if (stack.getItem() instanceof ICookable)
-							((ICookable) stack.getItem()).heatUpdate(stack, temp, timeInOvenSlot[i]);
+    int numUsingPlayers;
 
-						ItemStack result = OvenRecipes.getResult(stack, timeInOvenSlot[i] * temp); // replace
-																									// with
-																									// actually
-																									// heat
-																									// records
-						if (result != null)
-						{
-							inventoryOven.setInventorySlotContents(ovenInventorySlotStart + i, result.copy());
-							timeInOvenSlot[i] = 0;
-							sendPacket();
-						}
-					} else
-					{
-						if (i < timeInOvenSlot.length)
-							timeInOvenSlot[i] = 0;
-					}
-				}
+    public float prevDoorAngle;
+    int sync = 0;
+    private int temp;
 
-			}
-		} else
-		{
-			isCooking = false;
-			burnFuel();
-		}
+    private int[] timeInOvenSlot = new int[TileEntityOven.numOvenSlots];
 
-		if (fuelRemaining <= 0)
-		{
-			if (temp > 0)
-				temp--;
-		}
+    private void burnFuel()
+    {
+        final ItemStack fuelStack = inventoryOven.getStackInSlot(TileEntityOven.fuelSlot);
 
-		prevDoorAngle = doorAngle;
-		if (this.numUsingPlayers == 0 && doorAngle > 0.0F || this.numUsingPlayers > 0 && doorAngle < 1.0F)
-		{
-			if (this.numUsingPlayers > 0)
-			{
-				doorAngle += 0.1;
-			} else
-			{
-				doorAngle -= 0.1;
-			}
+        final int fuelAmount = TileEntityOven.getItemBurnTime(fuelStack);
+        if (fuelAmount > 0)
+        {
+            // TODO: add different "hotness" levels for different fuels
+            fuelHotness = 1;
 
-			if (doorAngle > 1.0F)
-			{
-				doorAngle = 1.0F;
-			}
+            fuelRemaining += fuelAmount;
 
-			if (doorAngle < 0.0F)
-			{
-				doorAngle = 0.0F;
-			}
-		}
-	}
+            fuelStack.stackSize--;
 
-	public int getFuelRemaining()
-	{
-		return fuelRemaining;
-	}
+            if (fuelStack.stackSize == 0)
+            {
+                inventoryOven.setInventorySlotContents(TileEntityOven.fuelSlot, fuelStack.getItem().getContainerItemStack(fuelStack));
+            }
+        }
 
-	public int getMaxTemp()
-	{
-		return maxTemp;
-	}
+    }
 
-	public boolean isCooking()
-	{
-		return isCooking;
-	}
+    @Override
+    public Packet getDescriptionPacket()
+    {
+        final NBTTagCompound tag = new NBTTagCompound();
+        writeCustomNBT(tag);
+        return new Packet132TileEntityData(xCoord, yCoord, zCoord, 1, tag);
+    }
 
-	public InventoryOven getInventoryOven()
-	{
-		return inventoryOven;
-	}
+    public int getFuelRemaining()
+    {
+        return fuelRemaining;
+    }
 
-	private void burnFuel()
-	{
-		ItemStack fuelStack = inventoryOven.getStackInSlot(fuelSlot);
+    public InventoryOven getInventoryOven()
+    {
+        return inventoryOven;
+    }
 
-		int fuelAmount = getItemBurnTime(fuelStack);
-		if (fuelAmount > 0)
-		{
-			// TODO: add different "hotness" levels for different fuels
-			fuelHotness = 1;
+    public int getMaxTemp()
+    {
+        return maxTemp;
+    }
 
-			fuelRemaining += fuelAmount;
+    public int getTemp()
+    {
+        return temp;
+    }
 
-			fuelStack.stackSize--;
+    public boolean isCooking()
+    {
+        return isCooking;
+    }
 
-			if (fuelStack.stackSize == 0)
-			{
-				inventoryOven.setInventorySlotContents(fuelSlot, fuelStack.getItem().getContainerItemStack(fuelStack));
-			}
-		}
+    @Override
+    public void onDataPacket(final INetworkManager net, final Packet132TileEntityData pkt)
+    {
+        readCustomNBT(pkt.data);
+    }
 
-	}
+    @Override
+    public void readCustomNBT(final NBTTagCompound tag)
+    {
+        temp = tag.getInteger("temp");
+        maxTemp = tag.getInteger("maxTemp");
+        fuelRemaining = tag.getInteger("fuelRemaining");
+        fuelHotness = tag.getInteger("fuelHotness");
 
-	public static int getItemBurnTime(ItemStack par0ItemStack)
-	{
-		if (par0ItemStack == null)
-		{
-			return 0;
-		} else
-		{
-			int i = par0ItemStack.getItem().itemID;
-			Item item = par0ItemStack.getItem();
+        timeInOvenSlot = tag.getIntArray("timeInOvenSlot");
 
-			if (par0ItemStack.getItem() instanceof ItemBlock && Block.blocksList[i] != null)
-			{
-				Block block = Block.blocksList[i];
+        final NBTTagList tagList = tag.getTagList("Items");
 
-				if (block == Block.woodSingleSlab)
-				{
-					return 150;
-				}
+        for (int i = 0; i < tagList.tagCount(); i++)
+        {
+            final NBTTagCompound base = (NBTTagCompound) tagList.tagAt(i);
+            final int slot = Integer.valueOf(base.getByte("Slot"));
+            inventoryOven.setInventorySlotContents(slot, ItemStack.loadItemStackFromNBT(base));
+        }
+    }
 
-				if (block.blockMaterial == Material.wood)
-				{
-					return 300;
-				}
+    @Override
+    public void readFromNBT(final NBTTagCompound tag)
+    {
+        super.readFromNBT(tag);
+        readCustomNBT(tag);
+    }
 
-				if (block == Block.field_111034_cE)
-				{
-					return 16000;
-				}
-			}
+    @Override
+    public boolean receiveClientEvent(final int id, final int value)
+    {
+        if (id == 1)
+        {
+            numUsingPlayers = value;
+            return true;
+        }
+        else
+        {
+            return super.receiveClientEvent(id, value);
+        }
+    }
 
-			if (item instanceof ItemTool && ((ItemTool) item).getToolMaterialName().equals("WOOD"))
-				return 200;
-			if (item instanceof ItemSword && ((ItemSword) item).getToolMaterialName().equals("WOOD"))
-				return 200;
-			if (item instanceof ItemHoe && ((ItemHoe) item).getMaterialName().equals("WOOD"))
-				return 200;
-			if (i == Item.stick.itemID)
-				return 100;
-			if (i == Item.coal.itemID)
-				return 1600;
-			if (i == Item.bucketLava.itemID)
-				return 20000;
-			if (i == Block.sapling.blockID)
-				return 100;
-			if (i == Item.blazeRod.itemID)
-				return 2400;
-			return GameRegistry.getFuelValue(par0ItemStack);
-		}
-	}
+    public void sendPacket()
+    {
+        final ByteArrayOutputStream bos = new ByteArrayOutputStream(140);
+        final DataOutputStream dos = new DataOutputStream(bos);
+        try
+        {
+            dos.writeShort(0);
+            dos.writeInt(xCoord);
+            dos.writeInt(yCoord);
+            dos.writeInt(zCoord);
+            dos.writeByte(direction);
+            dos.writeInt(fuelRemaining);
+            dos.writeInt(temp);
+            dos.writeInt(maxTemp);
+        }
+        catch (final IOException e)
+        {
+            System.out.println(e);
+        }
 
-	private int getTempIncreaseForFuel()
-	{
-		return 1;
-	}
+        final Packet250CustomPayload packet = new Packet250CustomPayload();
+        packet.channel = Agriculture.MODID;
+        packet.data = bos.toByteArray();
+        packet.length = bos.size();
+        packet.isChunkDataPacket = true;
 
-	@Override
-	public void readFromNBT(NBTTagCompound tag)
-	{
-		super.readFromNBT(tag);
-		readCustomNBT(tag);
-	}
+        if (packet != null)
+        {
+            if (FMLCommonHandler.instance().getEffectiveSide() == Side.SERVER)
+            {
+                PacketDispatcher.sendPacketToAllAround(xCoord, yCoord, zCoord, 16, worldObj.provider.dimensionId, packet);
+            }
+            else
+            {
+                PacketDispatcher.sendPacketToServer(packet);
+            }
+        }
+    }
 
-	@Override
-	public void writeToNBT(NBTTagCompound tag)
-	{
-		super.writeToNBT(tag);
-		writeCustomNBT(tag);
-	}
+    public void setFuelRemaining(final int fuelRemaining)
+    {
+        this.fuelRemaining = fuelRemaining;
+    }
 
-	@Override
-	public Packet getDescriptionPacket()
-	{
-		final NBTTagCompound tag = new NBTTagCompound();
-		writeCustomNBT(tag);
-		return new Packet132TileEntityData(xCoord, yCoord, zCoord, 1, tag);
-	}
+    public void setMaxTemp(final int maxTemp)
+    {
+        this.maxTemp = maxTemp;
+    }
 
-	@Override
-	public void writeCustomNBT(NBTTagCompound tag)
-	{
-		tag.setInteger("temp", temp);
-		tag.setInteger("maxTemp", maxTemp);
-		tag.setInteger("fuelRemaining", fuelRemaining);
-		tag.setInteger("fuelHotness", fuelHotness);
+    public void setTemp(final int temp)
+    {
+        this.temp = temp;
+    }
 
-		tag.setIntArray("timeInOvenSlot", timeInOvenSlot);
+    @Override
+    public void updateEntity()
+    {
 
-		NBTTagList itemListTag = new NBTTagList();
-		for (int i = 0; i < this.inventoryOven.getSizeInventory(); ++i)
-		{
-			if (this.inventoryOven.getStackInSlot(i) != null)
-			{
-				NBTTagCompound itemTag = new NBTTagCompound();
-				itemTag.setByte("Slot", (byte) i);
-				this.inventoryOven.getStackInSlot(i).writeToNBT(itemTag);
-				itemListTag.appendTag(itemTag);
-			}
-		}
+        if (sync-- == 0)
+        {
+            sendPacket();
+        }
 
-		tag.setTag("Items", itemListTag);
-	}
+        if (fuelRemaining > 0)
+        {
+            isCooking = true;
+            fuelRemaining--;
+            if (temp < maxTemp)
+            {
+                temp += fuelHotness;
+            }
+            else if (temp > maxTemp)
+            {
+                temp--;
+            }
 
-	@Override
-	public void onDataPacket(INetworkManager net, Packet132TileEntityData pkt)
-	{
-		readCustomNBT(pkt.customParam1);
-	}
+            if (!worldObj.isRemote)
+            {
+                for (int i = 0; i < TileEntityOven.numOvenSlots; i++)
+                {
+                    final ItemStack stack = inventoryOven.getStackInSlot(TileEntityOven.ovenInventorySlotStart + i);
+                    if (stack != null)
+                    {
+                        timeInOvenSlot[i]++;
+                        if (stack.getItem() instanceof ICookable)
+                        {
+                            ((ICookable) stack.getItem()).heatUpdate(stack, temp, timeInOvenSlot[i]);
+                        }
 
-	@Override
-	public void readCustomNBT(NBTTagCompound tag)
-	{
-		temp = tag.getInteger("temp");
-		maxTemp = tag.getInteger("maxTemp");
-		fuelRemaining = tag.getInteger("fuelRemaining");
-		fuelHotness = tag.getInteger("fuelHotness");
+                        final ItemStack result = OvenRecipes.getInstance().findMatchingRecipe(stack, timeInOvenSlot[i] * temp); // replace
+                        // with
+                        // actually
+                        // heat
+                        // records
+                        if (result != null)
+                        {
+                            inventoryOven.setInventorySlotContents(TileEntityOven.ovenInventorySlotStart + i, result.copy());
+                            timeInOvenSlot[i] = 0;
+                            sendPacket();
+                        }
+                    }
+                    else
+                    {
+                        if (i < timeInOvenSlot.length)
+                        {
+                            timeInOvenSlot[i] = 0;
+                        }
+                    }
+                }
 
-		timeInOvenSlot = tag.getIntArray("timeInOvenSlot");
+            }
+        }
+        else
+        {
+            isCooking = false;
+            burnFuel();
+        }
 
-		NBTTagList tagList = tag.getTagList("Items");
+        if (fuelRemaining <= 0)
+        {
+            if (temp > 0)
+            {
+                temp--;
+            }
+        }
 
-		for (int i = 0; i < tagList.tagCount(); i++)
-		{
-			NBTTagCompound base = (NBTTagCompound) tagList.tagAt(i);
-			int slot = Integer.valueOf(base.getByte("Slot"));
-			this.inventoryOven.setInventorySlotContents(slot, ItemStack.loadItemStackFromNBT(base));
-		}
-	}
+        prevDoorAngle = doorAngle;
+        if (numUsingPlayers == 0 && doorAngle > 0.0F || numUsingPlayers > 0 && doorAngle < 1.0F)
+        {
+            if (numUsingPlayers > 0)
+            {
+                doorAngle += 0.1;
+            }
+            else
+            {
+                doorAngle -= 0.1;
+            }
 
-	public boolean receiveClientEvent(int id, int value)
-	{
-		if (id == 1)
-		{
-			this.numUsingPlayers = value;
-			return true;
-		} else
-		{
-			return super.receiveClientEvent(id, value);
-		}
-	}
+            if (doorAngle > 1.0F)
+            {
+                doorAngle = 1.0F;
+            }
 
-	public void sendPacket()
-	{
-		ByteArrayOutputStream bos = new ByteArrayOutputStream(140);
-		DataOutputStream dos = new DataOutputStream(bos);
-		try
-		{
-			dos.writeShort(0);
-			dos.writeInt(xCoord);
-			dos.writeInt(yCoord);
-			dos.writeInt(zCoord);
-			dos.writeByte(direction);
-			dos.writeInt(fuelRemaining);
-			dos.writeInt(temp);
-			dos.writeInt(maxTemp);
-		} catch (IOException e)
-		{
-			System.out.println(e);
-		}
+            if (doorAngle < 0.0F)
+            {
+                doorAngle = 0.0F;
+            }
+        }
+    }
 
-		Packet250CustomPayload packet = new Packet250CustomPayload();
-		packet.channel = Agriculture.MODID;
-		packet.data = bos.toByteArray();
-		packet.length = bos.size();
-		packet.isChunkDataPacket = true;
+    @Override
+    public void writeCustomNBT(final NBTTagCompound tag)
+    {
+        tag.setInteger("temp", temp);
+        tag.setInteger("maxTemp", maxTemp);
+        tag.setInteger("fuelRemaining", fuelRemaining);
+        tag.setInteger("fuelHotness", fuelHotness);
 
-		if (packet != null)
-		{
-			if (FMLCommonHandler.instance().getEffectiveSide() == Side.SERVER)
-			{
-				PacketDispatcher.sendPacketToAllAround(xCoord, yCoord, zCoord, 16, worldObj.provider.dimensionId, packet);
-			} else
-			{
-				PacketDispatcher.sendPacketToServer(packet);
-			}
-		}
-	}
+        tag.setIntArray("timeInOvenSlot", timeInOvenSlot);
 
-	public void setTemp(int temp)
-	{
-		this.temp = temp;
-	}
+        final NBTTagList itemListTag = new NBTTagList();
+        for (int i = 0; i < inventoryOven.getSizeInventory(); ++i)
+        {
+            if (inventoryOven.getStackInSlot(i) != null)
+            {
+                final NBTTagCompound itemTag = new NBTTagCompound();
+                itemTag.setByte("Slot", (byte) i);
+                inventoryOven.getStackInSlot(i).writeToNBT(itemTag);
+                itemListTag.appendTag(itemTag);
+            }
+        }
 
-	public void setMaxTemp(int maxTemp)
-	{
-		this.maxTemp = maxTemp;
-	}
+        tag.setTag("Items", itemListTag);
+    }
 
-	public void setFuelRemaining(int fuelRemaining)
-	{
-		this.fuelRemaining = fuelRemaining;
-	}
+    @Override
+    public void writeToNBT(final NBTTagCompound tag)
+    {
+        super.writeToNBT(tag);
+        writeCustomNBT(tag);
+    }
 }

@@ -6,51 +6,47 @@ import net.minecraftforge.fluids.FluidTank;
 
 import org.lwjgl.opengl.GL11;
 
-public class GUIFrier extends GuiLiquids 
-{
-	private ResourceLocation texture = new ResourceLocation("agriculture", "textures/gui/Frier.png");
-	private ContainerFrier counter;
-	
-	public GUIFrier(ContainerFrier containerFrier)
-	{
-		super(containerFrier);
-		this.counter = containerFrier;
-	}
-	
-	@Override
-	public void initGui()
-	{
-		this.xSize = 177;
-		this.ySize = 167;
-		
-		super.initGui();
-	}
+public class GUIFrier extends GuiLiquids {
+    private final ContainerFrier counter;
+    private final FluidWidget fluidWidget;
+    public ResourceLocation texture = new ResourceLocation("agriculture", "textures/gui/Frier.png");
 
-	@Override
-	protected void drawGuiContainerBackgroundLayer(float f, int i, int j)
-	{
-		Minecraft.getMinecraft().renderEngine.func_110577_a(texture);
-		
-		GL11.glDisable(GL11.GL_LIGHTING);
-		GL11.glColor3f(1f, 1f, 1f);
-		drawTexturedModalRect(guiLeft, guiTop, 0, 0, xSize, ySize);	
-		
-		FluidTank tank = counter.getTE().getTank();
-		
-		float scaled = tank.getFluidAmount() / (float)tank.getCapacity();
-		
-		displayLiquid(guiLeft, guiTop, 43, 10, (int) (scaled * 64), tank.getFluid());
-		GL11.glEnable(GL11.GL_LIGHTING);
-	}
+    public GUIFrier(final ContainerFrier containerFrier)
+    {
+        super(containerFrier);
+        counter = containerFrier;
 
-	@Override
-	public FluidTank getTankAtCoord(int x, int y)
-	{
-		if(x >= 43 && x <= 60 && y >= 10 && y <= 74)
-		{
-			return counter.getTE().getTank();
-		}
-		
-		return null;
-	}
+        fluidWidget = new GuiLiquids.FluidWidget(counter.getTE().getTank(), 44, 10, 178, 3, 19, 65);
+
+    }
+
+    @Override
+    protected void drawGuiContainerBackgroundLayer(final float f, final int i, final int j)
+    {
+        Minecraft.getMinecraft().renderEngine.bindTexture(texture);
+
+        GL11.glDisable(GL11.GL_LIGHTING);
+        GL11.glColor3f(1f, 1f, 1f);
+        drawTexturedModalRect(guiLeft, guiTop, 0, 0, xSize, ySize);
+
+        fluidWidget.drawLiquid(this, guiLeft, guiTop, texture);
+        GL11.glEnable(GL11.GL_LIGHTING);
+    }
+
+    @Override
+    public FluidTank getTankAtCoord(final int x, final int y)
+    {
+        if (x >= 43 && x <= 60 && y >= 10 && y <= 74) { return counter.getTE().getTank(); }
+
+        return null;
+    }
+
+    @Override
+    public void initGui()
+    {
+        xSize = 177;
+        ySize = 167;
+
+        super.initGui();
+    }
 }
